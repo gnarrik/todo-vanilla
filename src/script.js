@@ -32,6 +32,11 @@ class Todo {
     this.deleteAllButtonElement = this.rootElement.querySelector(this.selectors.deleteAllButton)
     this.listElement = this.rootElement.querySelector(this.selectors.list)
     this.emptyMessageElement = this.rootElement.querySelector(this.selectors.emptyMessage)
+
+    // Данная переменная хранит состояние to do
+    // items - задачи
+    // filteredItems - отфильтрованные задачи
+    // searchQuery - ключ, по которому фильтруются задачи
     this.state = {
       items: this.getItemsFromLocalStorage(),
       filteredItems: null,
@@ -39,39 +44,63 @@ class Todo {
     }
     this.render()
     this.bindEvents()
+
   }
 
+  // Метод для получения списка задач из localStorage
   getItemsFromLocalStorage() {
+    // Получаем список задач в виде строки
     const rawData = localStorage.getItem(this.localStorageKey)
 
+    // Если строки нет, то в items запишется пустой массив
     if (!rawData) {
       return []
     }
 
     try {
+      // Пробуем распарсить строку в JSON формат.
+      // Данные представляют собой объекты с ключами id, title, isChecked
+      // Эти объекты сгруппированы в массив
       const parsedData = JSON.parse(rawData)
+
+      // Если данные хранятся в виде массива, возвращаем прочитанное, иначе - пустой массив
       return Array.isArray(parsedData) ? parsedData : []
     } catch {
+
+      //Если что-то идет не так выдаем ошибку и возвращаем пустой массив
       console.error('Todo items parse error')
       return []
     }
   }
 
+  // Метод для сохранения задач в localStorage
   saveItemsToLocalStorage() {
+    // ключ - 'todo-items'
+    // значение - строка из state.items
+    // при начальной загрузке страницы берется из localStorage
+    // в дальнейшем при обновлении state.items будет вызываться эта функция для сохранения обновленного списка задач
     localStorage.setItem(
       this.localStorageKey,
       JSON.stringify(this.state.items)
     )
   }
 
+  // Метод для рендера задач
   render() {
+    // Обращаемся к свойству 'text-content' элемента, отвечающего за отображение числа всех задач
+    // и записываем в него значение длины массива state.items
     this.totalTasksElement.textContent = this.state.items.length
 
+    // Переключаем класс 'is-visible' кнопки 'Delete All' в зависимости от наличия задач
+    // Если задач нет (this.state.items.length = 0), то класс 'is-visible' не применяется
+    // Если задачи есть (this.state.items.length > 0) то добавляется класс 'is-visible'
     this.deleteAllButtonElement.classList.toggle(
       this.stateClasses.isVisible,
       this.state.items.length > 0
     )
 
+    // вспомогательная переменная для рендера,
+    // в которой хранятся либо отфильтрованный список задач, либо неотфильтрованный
     const items = this.state.filteredItems ?? this.state.items
 
     this.listElement.innerHTML = items.map(({ id, title, isChecked }) => `
@@ -103,16 +132,25 @@ class Todo {
       </li>
     `).join('')
 
+    // Здесь написана логика, которая будет определять содержимое 'empty-message'
+    // Опциональная цепочка (?.) нужна поскольку this.state.filteredItems может принимать значение null
+    // Если не использовать, то появляется ошибка Uncaught TypeError: Cannot read properties of null (reading 'length')
     const isEmptyFilteredItems = this.state.filteredItems?.length === 0
+    // Здесь опциональная цепочка не нужна, поскольку this.state.items всегда равен массиву
     const isEmptyItems = this.state.items.length === 0
 
+    // Если не найдены отфильтрованные задачи, то возвращаем 'Tasks not found'
+    // Иначе смотрим есть ли задачи: если нет, возвращаем 'There are no tasks yet', иначе - пустую строку (задачи есть)
     this.emptyMessageElement.textContent =
       isEmptyFilteredItems ? 'Tasks not found'
         : isEmptyItems ? 'There are no tasks yet'
           : ''
   }
 
+  // Метод добавления задачи
   addItem(title) {
+    // В state.items пушим новую задачу
+    // эту функцию вызывает метод onNewTaskFormSubmit
     this.state.items.push({
       id: crypto?.randomUUID() ?? Date.now().toString(),
       title,
@@ -122,13 +160,18 @@ class Todo {
     this.render()
   }
 
+  // Метод удаления задачи
   deleteItem(id) {
+    // state.items присваиваем отфильтрованный список задач
+    // этот метод вызывает onClick
     this.state.items = this.state.items.filter((item) => item.id !== id)
     this.saveItemsToLocalStorage()
     this.render()
   }
 
+  // Метод изменения состояния задачи (вызывается onChange при клике на чекбокс)
   toggleCheckedState(id) {
+    // при нажатии на чекбокс изменяем состояние задачи с помощью !item.isChecked
     this.state.items = this.state.items.map((item) => {
       if (item.id === id) {
         return {
@@ -143,9 +186,12 @@ class Todo {
     this.render()
   }
 
+  // Метод фильтрации задач
   filter() {
+    // В state.searchQuery записывается вводимое значение из поля searchTaskInputElement
     const queryFormatted = this.state.searchQuery.toLowerCase()
 
+    // Затем по значению свойства title проверяем на совпадение state.searchQuery c каждым из title списка задач
     this.state.filteredItems = this.state.items.filter(({ title }) => {
       const titleFormatted = title.toLowerCase()
 
@@ -155,17 +201,23 @@ class Todo {
     this.render()
   }
 
+  // Метод сброса фильтрации задач
   resetFilter() {
+    // Просто приводим state.filteredItems и state.searchQuery в начальное состояние
     this.state.filteredItems = null
     this.state.searchQuery = ''
     this.render()
   }
 
+  // Метод обрабатывающий отправку формы для добавления списка задач
   onNewTaskFormSubmit = (event) => {
+    // Отменяем дефолтное поведение браузера
     event.preventDefault()
 
+    // newTodoItemTitle присваиваем введенное в newTaskInputElement значение
     const newTodoItemTitle = this.newTaskInputElement.value
 
+    // если поле не пустое вызываем addItem, сбрасываем фильтр, очищаем поле и вновь фокусируемся на нем
     if (newTodoItemTitle.trim().length > 0) {
       this.addItem(newTodoItemTitle)
       this.resetFilter()
@@ -174,13 +226,20 @@ class Todo {
     }
   }
 
+  // Метод обрабатывающий отправку формы searchTaskForm
   onSearchTaskFormSubmit = (event) => {
+    // делаем для того, чтобы браузер при поиске нужной пользователь задачи,
+    // нажимая клавишу 'Enter', не отправлял форму и не перезагружал страницу
     event.preventDefault()
   }
 
-  onSearchTaskInputChange = ({ target }) => {
+  // Метод для обработки введенного в searchTaskInput значения
+  onSearchTaskInputChange = ({target}) => {
+    // Получаем event.target.value и записываем его в переменную value без лишних пробелов
     const value = target.value.trim()
 
+    // Если поле не пустое, то state.searchQuery = value и вызываем метод this.filter()
+    // Если поле пустое, то сбрасываем фильтр
     if (value.length > 0) {
       this.state.searchQuery = value
       this.filter()
@@ -189,9 +248,11 @@ class Todo {
     }
   }
 
+  // Метод для удаления всех задач
   onDeleteAllButtonClick = () => {
+    // Просим подтвердить пользователя, что он хочет удалить задачи
     const isConfirmed = confirm('Are you sure you want to delete all?')
-
+    // Если 'да', то значение state.items заменяем на пустой массив
     if (isConfirmed) {
       this.state.items = []
       this.saveItemsToLocalStorage()
@@ -199,7 +260,13 @@ class Todo {
     }
   }
 
+  // Метод обработки клика на кнопку itemDeleteButton
   onClick = ({ target }) => {
+    // Если target === itemDeleteButton, то
+    // Ищем ближайшего родителя с селектором selectors.item
+    // Ищем элемент по селектору itemCheckBox (поскольку в нем находится id нужной задачи)
+    // Добавляем класс 'is-disappearing'
+    // спустя 400мс вызываем метод deleteItem() с переданным id задачи
     if (target.matches(this.selectors.itemDeleteButton)) {
       const itemElement = target.closest(this.selectors.item)
       const itemCheckboxElement = itemElement.querySelector(this.selectors.itemCheckbox)
@@ -212,12 +279,14 @@ class Todo {
     }
   }
 
+  // Метод обрабатывающий клик на чекбокс
   onChange = ({ target }) => {
     if (target.matches(this.selectors.itemCheckbox)) {
       this.toggleCheckedState(target.id)
     }
   }
 
+  // Метод привязывающий обработчики событий
   bindEvents() {
     this.newTaskFormElement.addEventListener('submit', this.onNewTaskFormSubmit)
     this.searchTaskFormElement.addEventListener('submit', this.onSearchTaskFormSubmit)
@@ -229,3 +298,5 @@ class Todo {
 }
 
 new Todo()
+
+// Почему id задачи добавляется в <input>, а не в <li>
